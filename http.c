@@ -14,13 +14,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
+//touch 创建文件在/tmp/name
 void touch(const char *name) {
     if (access("/tmp/grading", F_OK) < 0)
         return;
 
     char pn[1024];
-    snprintf(pn, 1024, "/tmp/%s", name);
+    snprintf(pn, 1024, "/tmp/%s", name);//把/tmp/name 写入pn
 
     int fd = open(pn, O_RDWR | O_CREAT | O_NOFOLLOW, 0666);
     if (fd >= 0)
@@ -37,7 +37,7 @@ int http_read_line(int fd, char *buf, size_t size)
         if (cc <= 0)
             break;
 
-        if (buf[i] == '\r')
+        if (buf[i] == '\r') // no i++
         {
             buf[i] = '\0';      /* skip */
             continue;
@@ -49,7 +49,7 @@ int http_read_line(int fd, char *buf, size_t size)
             return 0;
         }
 
-        if (i >= size - 1)
+        if (i >= size - 1)// protection for oveflow?
         {
             buf[i] = '\0';
             return 0;
@@ -61,7 +61,7 @@ int http_read_line(int fd, char *buf, size_t size)
     return -1;
 }
 
-const char *http_request_line(int fd, char *reqpath, char *env, size_t *env_len)
+const char *http_request_line(int fd, char *reqpath, char *env, size_t *env_len) //reqpath:4096 env:8192 
 {
     static char buf[8192];      /* static variables are not on the stack */
     char *sp1, *sp2, *qp, *envp = env;
@@ -69,7 +69,7 @@ const char *http_request_line(int fd, char *reqpath, char *env, size_t *env_len)
     /* For lab 2: don't remove this line. */
     touch("http_request_line");
 
-    if (http_read_line(fd, buf, sizeof(buf)) < 0)
+    if (http_read_line(fd, buf, sizeof(buf)) < 0)//read the request line
         return "Socket IO error";
 
     /* Parse request like "GET /foo.html HTTP/1.0" */
@@ -117,7 +117,7 @@ const char *http_request_headers(int fd)
 {
     static char buf[8192];      /* static variables are not on the stack */
     int i;
-    char value[512];
+    char value[8192];
     char envvar[512];
 
     /* For lab 2: don't remove this line. */
@@ -130,7 +130,7 @@ const char *http_request_headers(int fd)
             return "Socket IO error";
 
         if (buf[0] == '\0')     /* end of headers */
-            break;
+            break; //read the headers
 
         /* Parse things like "Cookie: foo bar" */
         char *sp = strchr(buf, ' ');
@@ -156,13 +156,13 @@ const char *http_request_headers(int fd)
         }
 
         /* Decode URL escape sequences in the value */
-        url_decode(value, sp);
+        url_decode(value, sp); // vulnerability,: value's length is 512 and sp's can be 8192
 
         /* Store header in env. variable for application code */
         /* Some special headers don't use the HTTP_ prefix. */
         if (strcmp(buf, "CONTENT_TYPE") != 0 &&
             strcmp(buf, "CONTENT_LENGTH") != 0) {
-            sprintf(envvar, "HTTP_%s", buf);
+            sprintf(envvar, "HTTP_%s", buf); // vulnerability,: envvar's length is 512 and sp's can be 8192
             setenv(envvar, value, 1);
         } else {
             setenv(buf, value, 1);
@@ -203,7 +203,7 @@ void split_path(char *pn)
          * Stop searching if we find a file at a prefix,
          * or if we get an unexpected error.
          */
-        int r = stat(pn, &st);
+        int r = stat(pn, &st);//stat函数获取文件状态，将pn指向的文件状态复制到st结构体
         if (r < 0) {
             if (errno != ENOTDIR && errno != ENOENT)
                 break;
@@ -273,7 +273,7 @@ valid_cgi_script(struct stat *st)
 void http_serve(int fd, const char *name)
 {
     void (*handler)(int, const char *) = http_serve_none;
-    char pn[2048];
+    char pn[2048];//document root
     struct stat st;
 
     getcwd(pn, sizeof(pn));
@@ -283,10 +283,10 @@ void http_serve(int fd, const char *name)
         http_err(fd, 500, "Request too long");
         return;
     }
-    strncat(pn, name, sizeof(pn) - strlen(pn) - 1);
+    strncat(pn, name, sizeof(pn) - strlen(pn) - 1);//document root and file name
     split_path(pn);
 
-    if (!stat(pn, &st))
+    if (!stat(pn, &st))// is a file
     {
         /* executable bits -- run as CGI script */
         if (valid_cgi_script(&st))
@@ -379,7 +379,7 @@ void http_serve_executable(int fd, const char *pn)
     char buf[1024], headers[4096], *pheaders = headers;
     int pipefd[2], statusprinted = 0, ret, headerslen = 4096;
 
-    pipe(pipefd);
+    pipe(pipefd); //0 for read, 1 for write
     switch (fork()) {
     case -1:
         http_err(fd, 500, "fork: %s", strerror(errno));
@@ -389,7 +389,7 @@ void http_serve_executable(int fd, const char *pn)
         signal(SIGCHLD, SIG_DFL);
         dup2(fd, 0);
         close(fd);
-        dup2(pipefd[1], 1);
+        dup2(pipefd[1], 1);//?
         close(pipefd[0]);
         close(pipefd[1]);
         execl(pn, pn, NULL);
@@ -438,11 +438,11 @@ void http_serve_executable(int fd, const char *pn)
     }
 }
 
-void url_decode(char *dst, const char *src)
+void url_decode(char *dst, const char *src)//bug 
 {
     for (;;)
     {
-        if (src[0] == '%' && src[1] && src[2])
+        if (src[0] == '%' && src[1] && src[2])//use this?
         {
             char hexbuf[3];
             hexbuf[0] = src[1];
@@ -462,7 +462,7 @@ void url_decode(char *dst, const char *src)
             *dst = *src;
             src++;
 
-            if (*dst == '\0')
+            if (*dst == '\0') // no \00
                 break;
         }
 
@@ -489,8 +489,8 @@ void env_deserialize(const char *env, size_t len)
 
 void fdprintf(int fd, char *fmt, ...)
 {
-    char *s = 0;
-
+    char *s = 0;//有长度限制吗？
+    //处理变长参数表，类似printf
     va_list ap;
     va_start(ap, fmt);
     vasprintf(&s, fmt, ap);
